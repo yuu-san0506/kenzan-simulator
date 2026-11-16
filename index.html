@@ -148,7 +148,28 @@
       .pattern-item { border-radius: var(--radius); background: var(--surface); padding: 0.75rem; }
       .pattern-item .pname { margin: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .pattern-item .pmeta { margin: 0.125rem 0 0; font-size: 0.875rem; color: var(--dim); }
-      .pattern-actions { margin-top: 0.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+      .pattern-actions { margin-top: 0.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+      .share-row { margin-top: 0.5rem; display: grid; grid-template-columns: 1fr; gap: 0.5rem; }
+      .share-row button {
+        border-radius: var(--radius);
+        border: 1px solid var(--accent);
+        background: var(--surface-2);
+        padding: 0.5rem 1rem;
+        font-weight: 700;
+        color: var(--accent-strong);
+      }
+      .share-row button:disabled { opacity: 0.4; cursor: default; }
+      .share-manual { margin-top: 0.5rem; border-radius: var(--radius); background: var(--surface); padding: 0.75rem; }
+      .share-manual label { display: block; font-size: 0.75rem; line-height: 1.6; color: var(--dim); margin-bottom: 0.375rem; }
+      .share-manual input[type="text"] {
+        width: 100%;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        color: var(--text);
+      }
       .pattern-actions button, .edit-row button {
         border-radius: var(--radius);
         border: 1px solid var(--border);
@@ -226,6 +247,14 @@
         <div class="disc-actions">
           <button type="button" id="undo-btn" disabled>1つ戻す</button>
           <button type="button" id="clear-btn">全部外す</button>
+        </div>
+        <div class="share-row">
+          <button type="button" id="share-btn">共有リンクをコピー</button>
+        </div>
+        <p class="feedback" id="share-feedback" role="status" hidden></p>
+        <div class="share-manual" id="share-manual" hidden>
+          <label for="share-manual-input">自動でコピーできませんでした。下のリンクを選択してコピーしてください。</label>
+          <input type="text" id="share-manual-input" readonly aria-label="共有リンク" />
         </div>
       </section>
 
@@ -306,6 +335,7 @@
       var confirmDeleteId = null;
       var confirmDeleteTimer = null;
       var view = { zoom: 1, x: 0, y: 0 };
+      var sharedView = false; // true while showing a pattern restored from a share link (draft auto-save suppressed until the viewer edits)
 
       // ---- dom -------------------------------------------------------
       var $ = function (id) { return document.getElementById(id); };
@@ -532,10 +562,12 @@
       var saveTimer = null;
       var lastSavedKey = null;
       function scheduleSave() {
+        if (sharedView) return;
         if (saveTimer) clearTimeout(saveTimer);
         saveTimer = setTimeout(saveDraftNow, 300);
       }
       function saveDraftNow() {
+        if (sharedView) return;
         if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
         try {
           var payload = draftPayload();
@@ -551,7 +583,7 @@
         } catch (e) { /* ignore */ }
       }
 
-      function loadStored() {
+      function loadDraftOnly() {
         try {
           var raw = localStorage.getItem(DRAFT_KEY);
           if (raw) {
@@ -569,6 +601,9 @@
             lastSavedKey = JSON.stringify(draftPayload());
           }
         } catch (e) { /* start fresh */ }
+      }
+
+      function loadPatternsOnly() {
         try {
           var praw = localStorage.getItem(PATTERNS_KEY);
           if (praw) {
@@ -593,7 +628,14 @@
       window.addEventListener("pagehide", saveDraftNow);
 
       // ---- editing ------------------------------------------------------
+      function beginUserEdit() {
+        if (!sharedView) return;
+        sharedView = false;
+        setNotice("");
+      }
+
       function pushHistory() {
+        beginUserEdit();
         undoStack = undoStack.slice(-59);
         undoStack.push({ marks: new Map(marks), stamps: stamps.slice() });
       }
@@ -611,6 +653,7 @@
       function undo() {
         var prev = undoStack[undoStack.length - 1];
         if (!prev) return;
+        beginUserEdit();
         undoStack = undoStack.slice(0, -1);
         marks = prev.marks;
         stamps = prev.stamps;
@@ -851,6 +894,7 @@
       ["mono", "silver", "plain"].forEach(function (m) {
         $("bg-" + m).addEventListener("click", function () {
           if (bgMode === m) return;
+          beginUserEdit();
           bgMode = m;
           renderBg();
           renderDisc();
@@ -1006,7 +1050,12 @@
                 renderPatterns();
               }
             });
+            var shareBtn = document.createElement("button");
+            shareBtn.type = "button";
+            shareBtn.textContent = "共有";
+            shareBtn.addEventListener("click", function () { copyShareLink(sharePayloadFromPattern(p), p.name); });
             actions.appendChild(loadBtn);
+            actions.appendChild(shareBtn);
             actions.appendChild(renameBtn);
             actions.appendChild(delBtn);
             li.appendChild(nameEl);
@@ -1017,15 +1066,171 @@
         });
       }
 
+      // ---- share links (#p=<base64url JSON>) ---------------------------
+      function cloneStampList(list) {
+        return list.map(function (s) {
+          return { id: s.id, cx: s.cx, cy: s.cy, radius: s.radius, count: s.count, seed: s.seed };
+        });
+      }
+
+      function sharePayloadFromCurrent() {
+        var sp = splitMarks();
+        return {
+          v: 1,
+          marks: sp.red,
+          greenMarks: sp.green,
+          stamps: cloneStampList(stamps),
+          bg: bgMode,
+        };
+      }
+
+      function sharePayloadFromPattern(p) {
+        return {
+          v: 1,
+          name: p.name,
+          marks: p.marks.slice(),
+          greenMarks: p.greenMarks.slice(),
+          stamps: cloneStampList(p.stamps.filter(isValidStamp)),
+        };
+      }
+
+      function encodeSharePayload(payload) {
+        var bytes = new TextEncoder().encode(JSON.stringify(payload));
+        var bin = "";
+        for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      }
+
+      function decodeSharePayload(data) {
+        if (!data || data.length > 30000) return null;
+        if (!/^[A-Za-z0-9_-]+$/.test(data)) return null;
+        var b64 = data.replace(/-/g, "+").replace(/_/g, "/");
+        while (b64.length % 4 !== 0) b64 += "=";
+        var bin = atob(b64);
+        var bytes = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        var obj = JSON.parse(new TextDecoder("utf-8").decode(bytes));
+        if (!obj || typeof obj !== "object") return null;
+        if (!Array.isArray(obj.marks) || !Array.isArray(obj.greenMarks) || !Array.isArray(obj.stamps)) return null;
+        var red = obj.marks.filter(function (id) { return typeof id === "string" && VALID_IDS.has(id); });
+        var redSet = new Set(red);
+        var green = obj.greenMarks.filter(function (id) {
+          return typeof id === "string" && VALID_IDS.has(id) && !redSet.has(id);
+        });
+        return {
+          marks: red,
+          greenMarks: green,
+          stamps: cloneStampList(obj.stamps.filter(isValidStamp).slice(0, 200)),
+          bg: obj.bg === "mono" || obj.bg === "silver" || obj.bg === "plain" ? obj.bg : null,
+          name: typeof obj.name === "string" && obj.name ? obj.name.slice(0, 60) : null,
+        };
+      }
+
+      function buildShareLink(payload) {
+        return window.location.href.split("#")[0] + "#p=" + encodeSharePayload(payload);
+      }
+
+      function setShareFeedback(text) {
+        var el = $("share-feedback");
+        if (text) {
+          el.textContent = text;
+          el.hidden = false;
+        } else {
+          el.hidden = true;
+        }
+      }
+
+      function fallbackCopy(text, done) {
+        try {
+          var ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          var ok = false;
+          try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+          document.body.removeChild(ta);
+          done(!!ok);
+        } catch (e) {
+          done(false);
+        }
+      }
+
+      function copyShareLink(payload, label) {
+        var link;
+        try {
+          link = buildShareLink(payload);
+        } catch (e) {
+          setShareFeedback("共有リンクを作成できませんでした");
+          return;
+        }
+        var done = function (ok) {
+          if (ok) {
+            $("share-manual").hidden = true;
+            setShareFeedback(label
+              ? "「" + label + "」の共有リンクをコピーしました"
+              : "共有リンクをコピーしました");
+          } else {
+            var box = $("share-manual");
+            var input = $("share-manual-input");
+            input.value = link;
+            box.hidden = false;
+            setShareFeedback("共有リンクを作成しました。下の欄からコピーしてください");
+            try { box.scrollIntoView({ block: "nearest" }); } catch (e) {}
+            try { input.focus(); input.select(); } catch (e) {}
+          }
+        };
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+          navigator.clipboard.writeText(link).then(
+            function () { done(true); },
+            function () { fallbackCopy(link, done); }
+          );
+        } else {
+          fallbackCopy(link, done);
+        }
+      }
+
+      $("share-btn").addEventListener("click", function () {
+        copyShareLink(sharePayloadFromCurrent(), null);
+      });
+
+      function tryApplyShareHash() {
+        var hash = window.location.hash || "";
+        if (hash.indexOf("#p=") !== 0) return null;
+        var payload = null;
+        try {
+          payload = decodeSharePayload(hash.slice(3));
+        } catch (e) {
+          payload = null;
+        }
+        if (!payload) return null;
+        marks = new Map();
+        payload.marks.forEach(function (id) { marks.set(id, 1); });
+        payload.greenMarks.forEach(function (id) { marks.set(id, 2); });
+        stamps = payload.stamps;
+        if (payload.bg) bgMode = payload.bg;
+        sharedView = true;
+        lastSavedKey = null;
+        return payload;
+      }
+
       $("undo-btn").addEventListener("click", undo);
       $("clear-btn").addEventListener("click", clearAll);
 
       // ---- init -----------------------------------------------------------
-      loadStored();
+      loadPatternsOnly();
+      var sharedPayload = tryApplyShareHash();
+      if (!sharedPayload) loadDraftOnly();
       renderBg();
       renderMode();
       render();
       renderPatterns();
+      if (sharedPayload) {
+        setNotice(sharedPayload.name
+          ? "共有されたパターン「" + sharedPayload.name + "」を表示しています。あなたの保存済みパターンや下書きは変更していません。盤面を編集すると、あなたの下書きとして保存されます。"
+          : "共有されたパターンを表示しています。あなたの保存済みパターンや下書きは変更していません。盤面を編集すると、あなたの下書きとして保存されます。");
+      }
     </script>
   </body>
 </html>
