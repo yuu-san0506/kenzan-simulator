@@ -1,0 +1,1031 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="data:," />
+    <title>シーシャ剣山プランナー（公開版）</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #130a1a;
+        --surface: #1e1229;
+        --surface-2: #291839;
+        --text: #f0eaf8;
+        --dim: #a293c2;
+        --border: #3a2752;
+        --accent: #a78bfa;
+        --accent-strong: #c4b0ff;
+        --mark: #ff2d40;
+        --mark-dark: #8f0f1d;
+        --mark-green: #2fe07a;
+        --mark-blue: #3aa7ff;
+        --radius: 14px;
+        --font-display: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2rem; }
+      button { font: inherit; color: inherit; cursor: pointer; }
+      .font-display { font-family: var(--font-display); }
+      main { margin: 0 auto; width: 100%; max-width: 36rem; padding: 0 1rem 2.5rem; }
+      .hero { padding-top: 1.25rem; }
+      .hero-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.75rem; }
+      .hero-label { font-size: 0.875rem; color: var(--dim); margin: 0; }
+      .hero-count { font-family: var(--font-display); font-size: 3rem; font-weight: 900; line-height: 1; margin: 0.25rem 0 0; }
+      .hero-count .unit { margin-left: 0.25rem; font-size: 1.25rem; font-weight: 700; color: var(--dim); }
+      .legend { margin: 0.5rem 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; font-size: 0.875rem; font-weight: 700; }
+      .legend span.item { display: inline-flex; align-items: center; gap: 0.375rem; }
+      .dot { display: inline-block; border-radius: 9999px; }
+      .dot-red { width: 0.875rem; height: 0.875rem; background: var(--mark); }
+      .dot-green { width: 0.5rem; height: 0.5rem; background: var(--mark-green); }
+      .dot-blue { width: 0.375rem; height: 0.375rem; background: var(--mark-blue); }
+      .hero-side { padding-bottom: 0.25rem; text-align: right; font-size: 0.875rem; color: var(--dim); margin: 0; }
+      .breakdown { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--accent-strong); }
+      .notice { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--dim); }
+      section.tools { margin-top: 1.25rem; }
+      .seg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+      .seg-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; flex: 1; }
+      .seg-btn {
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--dim);
+        padding: 0.5rem 0.75rem;
+        font-weight: 700;
+      }
+      .seg-btn.active-accent { border-color: var(--accent); background: var(--surface-2); color: var(--accent-strong); }
+      .seg-btn.active-blue { border-color: var(--mark-blue); background: var(--surface-2); color: var(--mark-blue); }
+      .seg-btn.active-silver { border-color: #c9c9d4; background: #8f8f9c; color: #fff; }
+      .seg-btn.active-plain { border-color: #c9c9d4; background: #dcdce2; color: #2a2438; }
+      .pin-panel { margin-top: 0.5rem; border-radius: var(--radius); background: var(--surface); padding: 0.75rem; }
+      .pin-panel label { display: flex; align-items: center; justify-content: space-between; font-size: 0.875rem; font-weight: 700; }
+      .pin-panel label .val { color: var(--mark-blue); }
+      .pin-panel input[type="range"] { margin-top: 0.25rem; width: 100%; accent-color: var(--mark-blue); }
+      .pin-panel .slider-block + .slider-block { margin-top: 0.75rem; }
+      .pin-panel p { margin: 0.5rem 0 0; font-size: 0.75rem; line-height: 1.6; color: var(--dim); }
+      .bg-row { margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+      .bg-row .bg-label { flex-shrink: 0; font-size: 0.875rem; font-weight: 700; color: var(--dim); }
+      section.disc { margin-top: 1rem; }
+      #disc-wrap {
+        position: relative;
+        aspect-ratio: 1 / 1;
+        width: 100%;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        overflow: hidden;
+        border-radius: 9999px;
+        cursor: pointer;
+      }
+      #disc-wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      #disc-inner { width: 100%; height: 100%; }
+      #disc-inner svg { display: block; width: 100%; height: 100%; }
+      .disc-help { margin-top: 0.75rem; display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
+      .disc-help p { margin: 0; font-size: 0.75rem; line-height: 1.6; color: var(--dim); }
+      #reset-view {
+        flex-shrink: 0;
+        border-radius: 9999px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        padding: 0.25rem 0.75rem;
+        font-size: 0.875rem;
+        color: var(--accent-strong);
+      }
+      .disc-actions { margin-top: 0.75rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+      .disc-actions button {
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        padding: 0.5rem 1rem;
+        font-weight: 700;
+      }
+      .disc-actions button:disabled { opacity: 0.4; cursor: default; }
+      .disc-actions button.danger { border-color: var(--mark); background: var(--mark-dark); color: #fff; }
+      .card { margin-top: 1.5rem; border-radius: var(--radius); background: var(--surface); padding: 1rem; }
+      .card h2, section.patterns h2 { font-family: var(--font-display); font-size: 1.125rem; font-weight: 700; margin: 0; }
+      .card p.desc { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--dim); }
+      .save-row { margin-top: 0.75rem; display: flex; gap: 0.5rem; }
+      .save-row input[type="text"], .edit-row input[type="text"] {
+        min-width: 0;
+        flex: 1;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        padding: 0.5rem 0.75rem;
+        font-size: 1rem;
+        color: var(--text);
+      }
+      .save-row input::placeholder { color: var(--dim); }
+      .btn-accent {
+        flex-shrink: 0;
+        border: none;
+        border-radius: var(--radius);
+        background: var(--accent);
+        padding: 0.5rem 1rem;
+        font-weight: 700;
+        color: #1b0f2e;
+      }
+      .btn-accent:disabled { opacity: 0.4; cursor: default; }
+      .feedback { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--accent-strong); }
+      section.patterns { margin-top: 1.5rem; }
+      .patterns-empty { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--dim); }
+      .pattern-list { margin: 0.75rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+      .pattern-item { border-radius: var(--radius); background: var(--surface); padding: 0.75rem; }
+      .pattern-item .pname { margin: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .pattern-item .pmeta { margin: 0.125rem 0 0; font-size: 0.875rem; color: var(--dim); }
+      .pattern-actions { margin-top: 0.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+      .pattern-actions button, .edit-row button {
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: transparent;
+        padding: 0.5rem 0.75rem;
+        color: var(--text);
+      }
+      .pattern-actions button.load { border: none; background: var(--surface-2); font-weight: 700; color: var(--accent-strong); }
+      .pattern-actions button.danger { border: none; background: var(--mark-dark); color: #fff; font-weight: 700; }
+      .edit-row { display: flex; gap: 0.5rem; }
+      .edit-row .btn-accent { padding: 0.5rem 0.75rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <!-- Pin count hero -->
+      <section class="hero" aria-label="釘の本数">
+        <div class="hero-row">
+          <div>
+            <p class="hero-label">刺す釘の本数</p>
+            <p class="hero-count"><span id="total-count">0</span><span class="unit">本</span></p>
+            <p class="legend">
+              <span class="item"><span class="dot dot-red" aria-hidden="true"></span>大穴 <span id="red-count">0</span> 本</span>
+              <span class="item"><span class="dot dot-green" aria-hidden="true"></span>小穴 <span id="green-count">0</span> 本</span>
+              <span class="item"><span class="dot dot-blue" aria-hidden="true"></span>まち針穴 約 <span id="blue-count">0</span> 個</span>
+            </p>
+          </div>
+          <p class="hero-side">全 306 穴<br />12マス × 4段 ＋ 中心の風車</p>
+        </div>
+        <p class="breakdown" id="band-breakdown" hidden></p>
+        <p class="notice" id="notice" role="status" hidden></p>
+      </section>
+
+      <!-- Tool switch -->
+      <section class="tools" aria-label="ツールの切り替え">
+        <div class="seg-grid" role="group" aria-label="モード切替">
+          <button type="button" id="mode-normal" class="seg-btn active-accent" aria-pressed="true">通常（大穴・小穴）</button>
+          <button type="button" id="mode-pin" class="seg-btn" aria-pressed="false">まち針（青）</button>
+        </div>
+        <div class="pin-panel" id="pin-panel" hidden>
+          <div class="slider-block">
+            <label for="stamp-radius">散らばる範囲（半径）<span class="val" id="stamp-radius-val">26</span></label>
+            <input id="stamp-radius" type="range" min="10" max="56" step="2" value="26" />
+          </div>
+          <div class="slider-block">
+            <label for="stamp-count">1タップの穴の数<span class="val" id="stamp-count-val">15 個</span></label>
+            <input id="stamp-count" type="range" min="5" max="40" step="1" value="15" />
+          </div>
+          <p>盤面をタップすると、その周りに小さな青い穴がほぼ等間隔に並びます。既存の青いまとまりをタップすると、そのまとまりだけ消えます。</p>
+        </div>
+        <div class="bg-row">
+          <span class="bg-label">背景</span>
+          <div class="seg-grid-3" role="group" aria-label="背景の切り替え">
+            <button type="button" id="bg-mono" class="seg-btn active-accent" aria-pressed="true">白黒市松</button>
+            <button type="button" id="bg-silver" class="seg-btn" aria-pressed="false">銀色市松</button>
+            <button type="button" id="bg-plain" class="seg-btn" aria-pressed="false">銀色一色（穴なし）</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Disc -->
+      <section class="disc" aria-label="剣山の盤面">
+        <div
+          id="disc-wrap"
+          role="button"
+          tabindex="0"
+          aria-label="剣山の盤面。穴をタップするたびに、大穴、小さい小穴、無印と切り替わります"
+        >
+          <div id="disc-inner" aria-hidden="true"></div>
+        </div>
+        <div class="disc-help">
+          <p id="disc-help-text">穴をタップするたびに 大穴 → 小さい小穴 → 無印 と切り替わります。中心など細かい所は2本指で拡大してからタップすると確実です。拡大中はドラッグで移動できます。</p>
+          <button type="button" id="reset-view" hidden>全体表示に戻す</button>
+        </div>
+        <div class="disc-actions">
+          <button type="button" id="undo-btn" disabled>1つ戻す</button>
+          <button type="button" id="clear-btn">全部外す</button>
+        </div>
+      </section>
+
+      <!-- Save pattern -->
+      <section class="card" aria-label="パターンを保存">
+        <h2>パターンとして保存</h2>
+        <p class="desc">ボウルやフレーバーごとに名前を付けて残せます。大穴と小穴の両方の印と、まち針の青いまとまりが保存されます。今の配置と保存したパターンは、このブラウザの中にだけ保存されます。</p>
+        <div class="save-row">
+          <input type="text" id="pattern-name" placeholder="例：Oblako × ダークリーフ" aria-label="パターン名" maxlength="60" />
+          <button type="button" id="save-pattern-btn" class="btn-accent" disabled>保存</button>
+        </div>
+        <p class="feedback" id="save-feedback" role="status" hidden></p>
+      </section>
+
+      <!-- Saved patterns -->
+      <section class="patterns" aria-label="保存済みパターン">
+        <h2>保存済みパターン</h2>
+        <p class="patterns-empty" id="patterns-empty">まだパターンはありません。盤面で釘位置を決めて、上から名前を付けて保存できます。</p>
+        <ul class="pattern-list" id="pattern-list"></ul>
+      </section>
+
+    </main>
+    <script>
+      "use strict";
+      // ================================================================
+      // シーシャ剣山プランナー（公開版）
+      // フォーク版（大穴・小穴＋まち針）と同一の盤面・機能を持つ静的版。
+      // 保存先はサーバーではなく、このブラウザの localStorage のみ。
+      // 盤面は原図の小円を検出して12マスの回転対称に理想化した全306穴。
+      // ================================================================
+
+      var VIEW = 400;
+      var CENTER = VIEW / 2;
+      var HIT_RADIUS = 12;
+      var DISC_R = 188;
+      var HOLE_R = 4.2;
+      var RED_R = HOLE_R * 1.3;
+      var GREEN_R = RED_R / 2;
+      var SECTORS = 12;
+      var SECTOR_DEG = 360 / SECTORS;
+      var SEAM_DEG = 22.61;
+      var DISC_BOUNDS = [42.32, 76.52, 110.14, 143.96];
+      var BAND_RADII = [
+        [DISC_BOUNDS[3], DISC_R],
+        [DISC_BOUNDS[2], DISC_BOUNDS[3]],
+        [DISC_BOUNDS[1], DISC_BOUNDS[2]],
+        [DISC_BOUNDS[0], DISC_BOUNDS[1]],
+      ];
+      var PINWHEEL_R = DISC_BOUNDS[0];
+      var BLUE_DOT = "#3aa7ff";
+      var DEFAULT_STAMP_RADIUS = 26;
+      var DEFAULT_STAMP_COUNT = 15;
+
+      // [id, band, x, y] — band: 1-4 = 外側からの段, 0 = 中心の風車
+      var HOLES_RAW = [["h0",1,30.08,199.67],["h1",1,47.13,199.71],["h2",1,31.57,177.5],["h3",1,48.48,179.76],["h4",1,35.95,155.71],["h5",1,52.42,160.15],["h6",1,43.14,134.67],["h7",1,58.88,141.23],["h8",1,67.76,123.31],["h9",1,53.01,114.76],["h10",1,78.9,106.71],["h11",1,65.39,96.3],["h12",1,80.08,79.62],["h13",1,92.11,91.7],["h14",1,96.82,64.99],["h15",1,107.17,78.54],["h16",1,115.32,52.68],["h17",1,123.82,67.47],["h18",1,135.27,42.89],["h19",1,141.77,58.66],["h20",1,156.34,35.78],["h21",1,160.72,52.27],["h22",1,178.14,31.49],["h23",1,180.34,48.4],["h24",1,200.33,30.08],["h25",1,200.29,47.13],["h26",1,222.5,31.57],["h27",1,220.24,48.48],["h28",1,244.29,35.95],["h29",1,239.85,52.42],["h30",1,265.33,43.14],["h31",1,258.77,58.88],["h32",1,285.24,53.01],["h33",1,276.69,67.76],["h34",1,303.7,65.39],["h35",1,293.29,78.9],["h36",1,320.38,80.08],["h37",1,308.3,92.11],["h38",1,335.01,96.82],["h39",1,321.46,107.17],["h40",1,347.32,115.32],["h41",1,332.53,123.82],["h42",1,357.11,135.27],["h43",1,341.34,141.77],["h44",1,364.22,156.34],["h45",1,347.73,160.72],["h46",1,368.51,178.14],["h47",1,351.6,180.34],["h48",1,369.92,200.33],["h49",1,352.87,200.29],["h50",1,368.43,222.5],["h51",1,351.52,220.24],["h52",1,364.05,244.29],["h53",1,347.58,239.85],["h54",1,356.86,265.33],["h55",1,341.12,258.77],["h56",1,346.99,285.24],["h57",1,332.24,276.69],["h58",1,334.61,303.7],["h59",1,321.1,293.29],["h60",1,307.89,308.3],["h61",1,319.92,320.38],["h62",1,292.83,321.46],["h63",1,303.18,335.01],["h64",1,276.18,332.53],["h65",1,284.68,347.32],["h66",1,258.23,341.34],["h67",1,264.73,357.11],["h68",1,239.28,347.73],["h69",1,243.66,364.22],["h70",1,219.66,351.6],["h71",1,221.86,368.51],["h72",1,199.67,369.92],["h73",1,199.71,352.87],["h74",1,177.5,368.43],["h75",1,179.76,351.52],["h76",1,155.71,364.05],["h77",1,160.15,347.58],["h78",1,141.23,341.12],["h79",1,134.67,356.86],["h80",1,114.76,346.99],["h81",1,123.31,332.24],["h82",1,96.3,334.61],["h83",1,106.71,321.1],["h84",1,79.62,319.92],["h85",1,91.7,307.89],["h86",1,64.99,303.18],["h87",1,78.54,292.83],["h88",1,52.68,284.68],["h89",1,67.47,276.18],["h90",1,42.89,264.73],["h91",1,58.66,258.23],["h92",1,52.27,239.28],["h93",1,35.78,243.66],["h94",1,31.49,221.86],["h95",1,48.4,219.66],["h96",2,64.96,199.74],["h97",2,81.36,199.77],["h98",2,66.14,182.12],["h99",2,82.41,184.29],["h100",2,69.62,164.8],["h101",2,85.46,169.07],["h102",2,75.33,148.08],["h103",2,90.48,154.39],["h104",2,83.18,132.25],["h105",2,97.37,140.48],["h106",2,93.02,117.58],["h107",2,106.02,127.6],["h108",2,104.69,104.33],["h109",2,116.27,115.95],["h110",2,118.0,92.7],["h111",2,127.96,105.74],["h112",2,132.7,82.92],["h113",2,140.88,97.14],["h114",2,148.56,75.14],["h115",2,154.81,90.31],["h116",2,165.3,69.49],["h117",2,169.51,85.35],["h118",2,182.63,66.08],["h119",2,184.74,82.35],["h120",2,200.26,64.96],["h121",2,200.23,81.36],["h122",2,217.88,66.14],["h123",2,215.71,82.41],["h124",2,235.2,69.62],["h125",2,230.93,85.46],["h126",2,251.92,75.33],["h127",2,245.61,90.48],["h128",2,267.75,83.18],["h129",2,259.52,97.37],["h130",2,282.42,93.02],["h131",2,272.4,106.02],["h132",2,295.67,104.69],["h133",2,284.05,116.27],["h134",2,307.3,118.0],["h135",2,294.26,127.96],["h136",2,317.08,132.7],["h137",2,302.86,140.88],["h138",2,324.86,148.56],["h139",2,309.69,154.81],["h140",2,314.65,169.51],["h141",2,330.51,165.3],["h142",2,333.92,182.63],["h143",2,317.65,184.74],["h144",2,335.04,200.26],["h145",2,318.64,200.23],["h146",2,333.86,217.88],["h147",2,317.59,215.71],["h148",2,330.38,235.2],["h149",2,314.54,230.93],["h150",2,324.67,251.92],["h151",2,309.52,245.61],["h152",2,316.82,267.75],["h153",2,302.63,259.52],["h154",2,293.98,272.4],["h155",2,306.98,282.42],["h156",2,283.73,284.05],["h157",2,295.31,295.67],["h158",2,272.04,294.26],["h159",2,282.0,307.3],["h160",2,259.12,302.86],["h161",2,267.3,317.08],["h162",2,245.19,309.69],["h163",2,251.44,324.86],["h164",2,230.49,314.65],["h165",2,234.7,330.51],["h166",2,215.26,317.65],["h167",2,217.37,333.92],["h168",2,199.77,318.64],["h169",2,199.74,335.04],["h170",2,182.12,333.86],["h171",2,184.29,317.59],["h172",2,169.07,314.54],["h173",2,164.8,330.38],["h174",2,154.39,309.52],["h175",2,148.08,324.67],["h176",2,140.48,302.63],["h177",2,132.25,316.82],["h178",2,117.58,306.98],["h179",2,127.6,293.98],["h180",2,104.33,295.31],["h181",2,115.95,283.73],["h182",2,92.7,282.0],["h183",2,105.74,272.04],["h184",2,82.92,267.3],["h185",2,97.14,259.12],["h186",2,75.14,251.44],["h187",2,90.31,245.19],["h188",2,69.49,234.7],["h189",2,85.35,230.49],["h190",2,66.08,217.37],["h191",2,82.35,215.26],["h192",3,98.46,195.37],["h193",3,115.4,188.7],["h194",3,100.81,177.81],["h195",3,106.17,160.92],["h196",3,121.2,167.18],["h197",3,114.38,145.22],["h198",3,132.38,147.91],["h199",3,125.19,131.19],["h200",3,138.28,119.24],["h201",3,148.17,132.18],["h202",3,153.24,109.75],["h203",3,167.49,121.08],["h204",3,169.62,103.0],["h205",3,186.93,99.2],["h206",3,189.02,115.35],["h207",3,204.63,98.46],["h208",3,211.3,115.4],["h209",3,222.19,100.81],["h210",3,239.08,106.17],["h211",3,232.82,121.2],["h212",3,254.78,114.38],["h213",3,252.09,132.38],["h214",3,268.81,125.19],["h215",3,280.76,138.28],["h216",3,267.82,148.17],["h217",3,290.25,153.24],["h218",3,278.92,167.49],["h219",3,297.0,169.62],["h220",3,300.8,186.93],["h221",3,284.65,189.02],["h222",3,301.54,204.63],["h223",3,284.6,211.3],["h224",3,299.19,222.19],["h225",3,293.83,239.08],["h226",3,278.8,232.82],["h227",3,285.62,254.78],["h228",3,267.62,252.09],["h229",3,274.81,268.81],["h230",3,251.83,267.82],["h231",3,261.72,280.76],["h232",3,246.76,290.25],["h233",3,232.51,278.92],["h234",3,230.38,297.0],["h235",3,213.07,300.8],["h236",3,210.98,284.65],["h237",3,195.37,301.54],["h238",3,188.7,284.6],["h239",3,177.81,299.19],["h240",3,167.18,278.8],["h241",3,160.92,293.83],["h242",3,145.22,285.62],["h243",3,147.91,267.62],["h244",3,131.19,274.81],["h245",3,119.24,261.72],["h246",3,132.18,251.83],["h247",3,109.75,246.76],["h248",3,121.08,232.51],["h249",3,103.0,230.38],["h250",3,99.2,213.07],["h251",3,115.35,210.98],["h252",4,132.91,191.04],["h253",4,137.52,173.98],["h254",4,152.64,180.28],["h255",4,146.38,158.69],["h256",4,168.85,159.24],["h257",4,158.9,146.22],["h258",4,174.22,137.42],["h259",4,191.29,132.88],["h260",4,193.4,149.12],["h261",4,208.96,132.91],["h262",4,226.02,137.52],["h263",4,219.72,152.64],["h264",4,241.31,146.38],["h265",4,253.78,158.9],["h266",4,240.76,168.85],["h267",4,262.58,174.22],["h268",4,267.12,191.29],["h269",4,250.88,193.4],["h270",4,267.09,208.96],["h271",4,262.48,226.02],["h272",4,247.36,219.72],["h273",4,253.62,241.31],["h274",4,241.1,253.78],["h275",4,231.15,240.76],["h276",4,225.78,262.58],["h277",4,206.6,250.88],["h278",4,208.71,267.12],["h279",4,191.04,267.09],["h280",4,180.28,247.36],["h281",4,173.98,262.48],["h282",4,158.69,253.62],["h283",4,159.24,231.15],["h284",4,146.22,241.1],["h285",4,137.42,225.78],["h286",4,132.88,208.71],["h287",4,149.12,206.6],["h288",0,169.23,187.19],["h289",0,184.14,193.39],["h290",0,179.76,173.52],["h291",0,195.71,166.95],["h292",0,197.79,182.96],["h293",0,212.81,169.23],["h294",0,226.48,179.76],["h295",0,213.65,189.57],["h296",0,233.05,195.71],["h297",0,230.77,212.81],["h298",0,215.86,206.61],["h299",0,220.24,226.48],["h300",0,204.29,233.05],["h301",0,202.21,217.04],["h302",0,187.19,230.77],["h303",0,173.52,220.24],["h304",0,186.35,210.43],["h305",0,166.95,204.29]];
+      var HOLES = HOLES_RAW.map(function (h) {
+        return { id: h[0], band: h[1], x: h[2], y: h[3] };
+      });
+      var VALID_IDS = new Set(HOLES.map(function (h) { return h.id; }));
+      var TOTAL_HOLES = HOLES.length;
+
+      var DRAFT_KEY = "kenzanPlannerPublic.draft.v1";
+      var PATTERNS_KEY = "kenzanPlannerPublic.patterns.v1";
+
+      // ---- state -----------------------------------------------------
+      var marks = new Map(); // id -> 1 (大穴) | 2 (小穴)
+      var stamps = []; // {id, cx, cy, radius, count, seed}
+      var patterns = []; // {id, name, marks:[], greenMarks:[], stamps:[], updatedAt}
+      var mode = "normal"; // "normal" | "pin"
+      var bgMode = "mono"; // "mono" | "silver" | "plain"
+      var stampRadius = DEFAULT_STAMP_RADIUS;
+      var stampCount = DEFAULT_STAMP_COUNT;
+      var undoStack = []; // {marks: Map, stamps: []}
+      var stampSeq = 0;
+      var confirmClear = false;
+      var confirmClearTimer = null;
+      var editingId = null;
+      var confirmDeleteId = null;
+      var confirmDeleteTimer = null;
+      var view = { zoom: 1, x: 0, y: 0 };
+
+      // ---- dom -------------------------------------------------------
+      var $ = function (id) { return document.getElementById(id); };
+      var discWrap = $("disc-wrap");
+      var discInner = $("disc-inner");
+
+      // ---- helpers ---------------------------------------------------
+      function mulberry32(seed) {
+        var a = seed >>> 0;
+        return function () {
+          a = (a + 0x6d2b79f5) | 0;
+          var t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function stampPoints(s) {
+        var GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+        var rotation = mulberry32(s.seed)() * Math.PI * 2;
+        var pts = [];
+        var maxR = DISC_R - 2;
+        for (var i = 0; i < s.count; i++) {
+          var dist = Math.sqrt((i + 0.5) / s.count) * s.radius;
+          var ang = rotation + i * GOLDEN_ANGLE;
+          var x = s.cx + Math.cos(ang) * dist;
+          var y = s.cy + Math.sin(ang) * dist;
+          var d = Math.hypot(x - CENTER, y - CENTER);
+          if (d > maxR) {
+            x = CENTER + ((x - CENTER) / d) * maxR;
+            y = CENTER + ((y - CENTER) / d) * maxR;
+          }
+          pts.push({ x: x, y: y, r: 1.3 });
+        }
+        return pts;
+      }
+
+      function isValidStamp(s) {
+        return (
+          s &&
+          typeof s.id === "string" &&
+          Number.isFinite(s.cx) &&
+          Number.isFinite(s.cy) &&
+          Number.isFinite(s.radius) &&
+          Number.isFinite(s.count) &&
+          Number.isFinite(s.seed)
+        );
+      }
+
+      function polar(r, deg) {
+        var rad = (deg * Math.PI) / 180;
+        return { x: CENTER + r * Math.cos(rad), y: CENTER + r * Math.sin(rad) };
+      }
+
+      function sectorPath(r0, r1, a0, a1) {
+        var p0 = polar(r1, a0);
+        var p1 = polar(r1, a1);
+        var p2 = polar(r0, a1);
+        var p3 = polar(r0, a0);
+        var large = a1 - a0 > 180 ? 1 : 0;
+        return [
+          "M " + p0.x.toFixed(2) + " " + p0.y.toFixed(2),
+          "A " + r1 + " " + r1 + " 0 " + large + " 1 " + p1.x.toFixed(2) + " " + p1.y.toFixed(2),
+          "L " + p2.x.toFixed(2) + " " + p2.y.toFixed(2),
+          "A " + r0 + " " + r0 + " 0 " + large + " 0 " + p3.x.toFixed(2) + " " + p3.y.toFixed(2),
+          "Z",
+        ].join(" ");
+      }
+
+      function f2(n) { return Math.round(n * 100) / 100; }
+
+      // ---- disc rendering ---------------------------------------------
+      function renderDisc() {
+        var plain = bgMode === "plain";
+        var silver = bgMode === "silver";
+        var cellLight = silver || plain ? "#dcdce2" : "#e9e4d8";
+        var cellDark = silver ? "#8f8f9c" : "#17171c";
+        var out = [];
+        out.push('<svg viewBox="0 0 ' + VIEW + " " + VIEW + '" role="img" aria-label="剣山の盤面">');
+        out.push('<circle cx="200" cy="200" r="197" fill="#241233"/>');
+        out.push('<circle cx="200" cy="200" r="197" fill="none" stroke="#a78bfa" stroke-opacity="0.45" stroke-width="2"/>');
+        out.push('<circle cx="200" cy="200" r="188" fill="#101014"/>');
+        if (plain) {
+          out.push('<circle cx="200" cy="200" r="' + DISC_R + '" fill="' + cellLight + '"/>');
+        } else {
+          for (var bi = 0; bi < BAND_RADII.length; bi++) {
+            var r0 = BAND_RADII[bi][0];
+            var r1 = BAND_RADII[bi][1];
+            for (var s = 0; s < SECTORS; s++) {
+              var light = (bi + s) % 2 === 0;
+              out.push(
+                '<path d="' +
+                  sectorPath(r0, r1, SEAM_DEG + s * SECTOR_DEG, SEAM_DEG + (s + 1) * SECTOR_DEG) +
+                  '" fill="' + (light ? cellLight : cellDark) + '"/>'
+              );
+            }
+          }
+          out.push('<circle cx="200" cy="200" r="' + PINWHEEL_R + '" fill="' + cellDark + '"/>');
+          for (var w = 0; w < SECTORS; w++) {
+            var a0 = SEAM_DEG + w * SECTOR_DEG;
+            var a1 = a0 + SECTOR_DEG;
+            var wp0 = polar(PINWHEEL_R, a0);
+            var wp1 = polar(PINWHEEL_R, a1);
+            out.push(
+              '<path d="M 200 200 L ' + wp0.x.toFixed(2) + " " + wp0.y.toFixed(2) +
+                " A " + PINWHEEL_R + " " + PINWHEEL_R + " 0 0 1 " + wp1.x.toFixed(2) + " " + wp1.y.toFixed(2) +
+                ' Z" fill="' + (w % 2 === 0 ? cellLight : cellDark) + '"/>'
+            );
+          }
+        }
+        for (var i = 0; i < HOLES.length; i++) {
+          var h = HOLES[i];
+          var state = marks.get(h.id) || 0;
+          if (state === 0) {
+            if (plain) continue;
+            out.push(
+              '<circle cx="' + h.x + '" cy="' + h.y + '" r="' + HOLE_R +
+                '" fill="#0b0b0f" stroke="rgba(140,130,175,0.4)" stroke-width="0.8"/>'
+            );
+          } else if (state === 1) {
+            out.push(
+              "<g>" +
+                '<circle cx="' + h.x + '" cy="' + h.y + '" r="' + f2(HOLE_R * 1.8) + '" fill="#ff2d40" opacity="0.22"/>' +
+                '<circle cx="' + h.x + '" cy="' + h.y + '" r="' + f2(RED_R) + '" fill="#ff2d40" stroke="#8f0f1d" stroke-width="1.2"/>' +
+                '<circle cx="' + h.x + '" cy="' + h.y + '" r="' + f2(HOLE_R * 0.5) + '" fill="#ffd9dd"/>' +
+                "</g>"
+            );
+          } else {
+            out.push(
+              "<g>" +
+                '<circle cx="' + h.x + '" cy="' + h.y + '" r="' + f2(GREEN_R * 1.9) + '" fill="#2fe07a" opacity="0.2"/>' +
+                '<circle cx="' + h.x + '" cy="' + h.y + '" r="' + f2(GREEN_R) + '" fill="#2fe07a" stroke="#0d7a3d" stroke-width="1"/>' +
+                '<circle cx="' + h.x + '" cy="' + h.y + '" r="' + f2(GREEN_R * 0.38) + '" fill="#d9ffe6"/>' +
+                "</g>"
+            );
+          }
+        }
+        for (var si = 0; si < stamps.length; si++) {
+          var st = stamps[si];
+          var pts = stampPoints(st);
+          var g = ['<g><circle cx="' + st.cx + '" cy="' + st.cy + '" r="' + st.radius +
+            '" fill="' + BLUE_DOT + '" opacity="0.06" stroke="' + BLUE_DOT +
+            '" stroke-opacity="0.22" stroke-width="0.8" stroke-dasharray="3 3"/>'];
+          for (var pi = 0; pi < pts.length; pi++) {
+            g.push('<circle cx="' + f2(pts[pi].x) + '" cy="' + f2(pts[pi].y) + '" r="' + pts[pi].r + '" fill="' + BLUE_DOT + '" opacity="0.92"/>');
+          }
+          g.push("</g>");
+          out.push(g.join(""));
+        }
+        out.push("</svg>");
+        discInner.innerHTML = out.join("");
+      }
+
+      // ---- counts / summary -------------------------------------------
+      function renderSummary() {
+        var red = 0;
+        var green = 0;
+        marks.forEach(function (v) { if (v === 1) red++; else green++; });
+        var blue = 0;
+        stamps.forEach(function (s) { blue += s.count; });
+        $("total-count").textContent = String(marks.size);
+        $("red-count").textContent = String(red);
+        $("green-count").textContent = String(green);
+        $("blue-count").textContent = String(blue);
+
+        var counts = new Map();
+        HOLES.forEach(function (h) {
+          var state = marks.get(h.id);
+          if (!state) return;
+          var e = counts.get(h.band) || { r: 0, g: 0 };
+          if (state === 1) e.r++; else e.g++;
+          counts.set(h.band, e);
+        });
+        var parts = [];
+        function label(name, c) {
+          var bits = [];
+          if (c.r) bits.push("大穴" + c.r);
+          if (c.g) bits.push("小穴" + c.g);
+          if (bits.length) parts.push(name + " " + bits.join("・"));
+        }
+        for (var b = 1; b <= 4; b++) {
+          if (counts.has(b)) label(b + "段目", counts.get(b));
+        }
+        if (counts.has(0)) label("中心", counts.get(0));
+        var bd = $("band-breakdown");
+        if (parts.length) {
+          bd.textContent = parts.join(" · ");
+          bd.hidden = false;
+        } else {
+          bd.hidden = true;
+        }
+        $("undo-btn").disabled = undoStack.length === 0;
+        updateSaveButton();
+      }
+
+      function setNotice(text) {
+        var n = $("notice");
+        if (text) {
+          n.textContent = text;
+          n.hidden = false;
+        } else {
+          n.hidden = true;
+        }
+      }
+
+      function render() {
+        renderDisc();
+        renderSummary();
+      }
+
+      // ---- localStorage ------------------------------------------------
+      function splitMarks() {
+        var red = [];
+        var green = [];
+        marks.forEach(function (v, id) { (v === 1 ? red : green).push(id); });
+        return { red: red, green: green };
+      }
+
+      function draftPayload() {
+        var sp = splitMarks();
+        return { marks: sp.red, greenMarks: sp.green, stamps: stamps, bg: bgMode };
+      }
+
+      var saveTimer = null;
+      var lastSavedKey = null;
+      function scheduleSave() {
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(saveDraftNow, 300);
+      }
+      function saveDraftNow() {
+        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+        try {
+          var payload = draftPayload();
+          var key = JSON.stringify(payload);
+          if (key === lastSavedKey) return;
+          lastSavedKey = key;
+          localStorage.setItem(DRAFT_KEY, key);
+        } catch (e) { /* storage unavailable: editing still works */ }
+      }
+      function savePatternsNow() {
+        try {
+          localStorage.setItem(PATTERNS_KEY, JSON.stringify(patterns));
+        } catch (e) { /* ignore */ }
+      }
+
+      function loadStored() {
+        try {
+          var raw = localStorage.getItem(DRAFT_KEY);
+          if (raw) {
+            var d = JSON.parse(raw);
+            if (d && Array.isArray(d.marks) && Array.isArray(d.greenMarks)) {
+              d.marks.forEach(function (id) { if (VALID_IDS.has(id)) marks.set(id, 1); });
+              d.greenMarks.forEach(function (id) { if (VALID_IDS.has(id)) marks.set(id, 2); });
+            }
+            if (d && Array.isArray(d.stamps)) {
+              stamps = d.stamps.filter(isValidStamp);
+            }
+            if (d && (d.bg === "mono" || d.bg === "silver" || d.bg === "plain")) {
+              bgMode = d.bg;
+            }
+            lastSavedKey = JSON.stringify(draftPayload());
+          }
+        } catch (e) { /* start fresh */ }
+        try {
+          var praw = localStorage.getItem(PATTERNS_KEY);
+          if (praw) {
+            var arr = JSON.parse(praw);
+            if (Array.isArray(arr)) {
+              patterns = arr.filter(function (p) {
+                return p && typeof p.id === "string" && typeof p.name === "string" &&
+                  Array.isArray(p.marks) && Array.isArray(p.greenMarks) && Array.isArray(p.stamps);
+              });
+              patterns.forEach(function (p) {
+                p.stamps = p.stamps.filter(isValidStamp);
+                if (!Number.isFinite(p.updatedAt)) p.updatedAt = Date.now();
+              });
+            }
+          }
+        } catch (e) { patterns = []; }
+      }
+
+      document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "hidden") saveDraftNow();
+      });
+      window.addEventListener("pagehide", saveDraftNow);
+
+      // ---- editing ------------------------------------------------------
+      function pushHistory() {
+        undoStack = undoStack.slice(-59);
+        undoStack.push({ marks: new Map(marks), stamps: stamps.slice() });
+      }
+
+      function cycleHole(id) {
+        pushHistory();
+        var cur = marks.get(id) || 0;
+        if (cur === 0) marks.set(id, 1);
+        else if (cur === 1) marks.set(id, 2);
+        else marks.delete(id);
+        render();
+        scheduleSave();
+      }
+
+      function undo() {
+        var prev = undoStack[undoStack.length - 1];
+        if (!prev) return;
+        undoStack = undoStack.slice(0, -1);
+        marks = prev.marks;
+        stamps = prev.stamps;
+        render();
+        scheduleSave();
+      }
+
+      function clearAll() {
+        if (!confirmClear) {
+          confirmClear = true;
+          var btn = $("clear-btn");
+          btn.textContent = "本当に全部外す";
+          btn.classList.add("danger");
+          if (confirmClearTimer) clearTimeout(confirmClearTimer);
+          confirmClearTimer = setTimeout(function () {
+            confirmClear = false;
+            btn.textContent = "全部外す";
+            btn.classList.remove("danger");
+          }, 3000);
+          return;
+        }
+        confirmClear = false;
+        if (confirmClearTimer) clearTimeout(confirmClearTimer);
+        var btn2 = $("clear-btn");
+        btn2.textContent = "全部外す";
+        btn2.classList.remove("danger");
+        if (marks.size === 0 && stamps.length === 0) return;
+        pushHistory();
+        marks = new Map();
+        stamps = [];
+        render();
+        scheduleSave();
+      }
+
+      function handlePinTap(x, y) {
+        var target = null;
+        var bestDist = Infinity;
+        stamps.forEach(function (s) {
+          var d = Math.hypot(s.cx - x, s.cy - y);
+          if (d <= s.radius + 6 && d < bestDist) {
+            bestDist = d;
+            target = s;
+          }
+        });
+        if (target) {
+          var id = target.id;
+          pushHistory();
+          stamps = stamps.filter(function (s) { return s.id !== id; });
+          render();
+          scheduleSave();
+          return;
+        }
+        var cx = x;
+        var cy = y;
+        var dc = Math.hypot(x - CENTER, y - CENTER);
+        var maxC = DISC_R - 2;
+        if (dc > maxC) {
+          cx = CENTER + ((x - CENTER) / dc) * maxC;
+          cy = CENTER + ((y - CENTER) / dc) * maxC;
+        }
+        pushHistory();
+        stampSeq += 1;
+        stamps = stamps.concat([{
+          id: "s" + Date.now().toString(36) + "-" + stampSeq,
+          cx: Math.round(cx * 100) / 100,
+          cy: Math.round(cy * 100) / 100,
+          radius: stampRadius,
+          count: stampCount,
+          seed: Math.floor(Math.random() * 2147483647),
+        }]);
+        render();
+        scheduleSave();
+      }
+
+      // ---- pinch zoom / pan / tap ---------------------------------------
+      var pointers = new Map();
+      var gesture = null;
+
+      function clampView(v, width) {
+        var zoom = Math.max(1, Math.min(3, v.zoom));
+        var maxPan = ((zoom - 1) * width) / 2 + 24;
+        return {
+          zoom: zoom,
+          x: Math.max(-maxPan, Math.min(maxPan, v.x)),
+          y: Math.max(-maxPan, Math.min(maxPan, v.y)),
+        };
+      }
+
+      function applyView() {
+        discInner.style.transform =
+          "translate(" + view.x + "px, " + view.y + "px) scale(" + view.zoom + ")";
+        $("reset-view").hidden = !(view.zoom > 1.02);
+      }
+
+      function screenToViewBox(clientX, clientY) {
+        var rect = discWrap.getBoundingClientRect();
+        var cx = rect.width / 2;
+        var cy = rect.height / 2;
+        var px = clientX - rect.left;
+        var py = clientY - rect.top;
+        var contentX = cx + (px - view.x - cx) / view.zoom;
+        var contentY = cy + (py - view.y - cy) / view.zoom;
+        return { x: (contentX / rect.width) * VIEW, y: (contentY / rect.height) * VIEW };
+      }
+
+      function handleTap(clientX, clientY) {
+        var pt = screenToViewBox(clientX, clientY);
+        if (!pt) return;
+        if (mode === "pin") {
+          handlePinTap(pt.x, pt.y);
+          return;
+        }
+        var best = null;
+        var bestDist = Infinity;
+        HOLES.forEach(function (h) {
+          var d = Math.hypot(h.x - pt.x, h.y - pt.y);
+          if (d < bestDist) {
+            bestDist = d;
+            best = h;
+          }
+        });
+        if (best && bestDist <= HIT_RADIUS) cycleHole(best.id);
+      }
+
+      discWrap.addEventListener("pointerdown", function (e) {
+        try { discWrap.setPointerCapture(e.pointerId); } catch (err) {}
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pointers.size === 1 || !gesture) {
+          gesture = {
+            downX: e.clientX, downY: e.clientY,
+            lastX: e.clientX, lastY: e.clientY,
+            moved: false, pinching: false,
+            lastDist: 0, lastMidX: 0, lastMidY: 0,
+          };
+        }
+        if (pointers.size === 2 && gesture) {
+          var vals = Array.from(pointers.values());
+          gesture.pinching = true;
+          gesture.lastDist = Math.hypot(vals[0].x - vals[1].x, vals[0].y - vals[1].y);
+          gesture.lastMidX = (vals[0].x + vals[1].x) / 2;
+          gesture.lastMidY = (vals[0].y + vals[1].y) / 2;
+        }
+      });
+
+      discWrap.addEventListener("pointermove", function (e) {
+        var g = gesture;
+        if (!g || !pointers.has(e.pointerId)) return;
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        var width = discWrap.getBoundingClientRect().width;
+        if (g.pinching && pointers.size === 2) {
+          var vals = Array.from(pointers.values());
+          var dist = Math.hypot(vals[0].x - vals[1].x, vals[0].y - vals[1].y);
+          var midX = (vals[0].x + vals[1].x) / 2;
+          var midY = (vals[0].y + vals[1].y) / 2;
+          view = clampView({
+            zoom: view.zoom * (g.lastDist > 0 ? dist / g.lastDist : 1),
+            x: view.x + (midX - g.lastMidX),
+            y: view.y + (midY - g.lastMidY),
+          }, width);
+          applyView();
+          g.lastDist = dist;
+          g.lastMidX = midX;
+          g.lastMidY = midY;
+          g.moved = true;
+          return;
+        }
+        if (Math.hypot(e.clientX - g.downX, e.clientY - g.downY) > 9) g.moved = true;
+        if (g.moved && view.zoom > 1.02) {
+          view = clampView({
+            zoom: view.zoom,
+            x: view.x + (e.clientX - g.lastX),
+            y: view.y + (e.clientY - g.lastY),
+          }, width);
+          applyView();
+        }
+        g.lastX = e.clientX;
+        g.lastY = e.clientY;
+      });
+
+      discWrap.addEventListener("pointerup", function (e) {
+        var g = gesture;
+        var wasPinching = g ? g.pinching : false;
+        pointers.delete(e.pointerId);
+        if (pointers.size === 0) {
+          if (g && !g.moved && !wasPinching) handleTap(e.clientX, e.clientY);
+          gesture = null;
+        }
+      });
+      discWrap.addEventListener("pointercancel", function (e) {
+        pointers.delete(e.pointerId);
+        if (pointers.size === 0) gesture = null;
+      });
+
+      $("reset-view").addEventListener("click", function () {
+        view = { zoom: 1, x: 0, y: 0 };
+        applyView();
+      });
+
+      // ---- mode / background switches ------------------------------------
+      function renderMode() {
+        var normal = mode === "normal";
+        $("mode-normal").className = "seg-btn" + (normal ? " active-accent" : "");
+        $("mode-normal").setAttribute("aria-pressed", String(normal));
+        $("mode-pin").className = "seg-btn" + (!normal ? " active-blue" : "");
+        $("mode-pin").setAttribute("aria-pressed", String(!normal));
+        $("pin-panel").hidden = normal;
+        discWrap.setAttribute("aria-label", normal
+          ? "剣山の盤面。穴をタップするたびに、大穴、小さい小穴、無印と切り替わります"
+          : "剣山の盤面。まち針モード：タップした場所の周りに小さな青い穴がほぼ等間隔に並びます。既存の青いまとまりをタップすると消えます");
+        $("disc-help-text").textContent = normal
+          ? "穴をタップするたびに 大穴 → 小さい小穴 → 無印 と切り替わります。中心など細かい所は2本指で拡大してからタップすると確実です。拡大中はドラッグで移動できます。"
+          : "まち針モード：タップした場所の周りに小さな青い穴がほぼ等間隔に並びます。青いまとまりをタップすると、そのまとまりだけ消えます。拡大中はドラッグで移動できます。";
+      }
+      $("mode-normal").addEventListener("click", function () { mode = "normal"; renderMode(); });
+      $("mode-pin").addEventListener("click", function () { mode = "pin"; renderMode(); });
+
+      $("stamp-radius").addEventListener("input", function (e) {
+        stampRadius = Number(e.target.value);
+        $("stamp-radius-val").textContent = String(stampRadius);
+      });
+      $("stamp-count").addEventListener("input", function (e) {
+        stampCount = Number(e.target.value);
+        $("stamp-count-val").textContent = stampCount + " 個";
+      });
+
+      function renderBg() {
+        var defs = [
+          ["mono", "bg-mono", "active-accent"],
+          ["silver", "bg-silver", "active-silver"],
+          ["plain", "bg-plain", "active-plain"],
+        ];
+        defs.forEach(function (d) {
+          var active = bgMode === d[0];
+          $(d[1]).className = "seg-btn" + (active ? " " + d[2] : "");
+          $(d[1]).setAttribute("aria-pressed", String(active));
+        });
+      }
+      ["mono", "silver", "plain"].forEach(function (m) {
+        $("bg-" + m).addEventListener("click", function () {
+          if (bgMode === m) return;
+          bgMode = m;
+          renderBg();
+          renderDisc();
+          scheduleSave();
+        });
+      });
+
+      // ---- patterns -------------------------------------------------------
+      function updateSaveButton() {
+        var name = $("pattern-name").value.trim();
+        $("save-pattern-btn").disabled =
+          name.length === 0 || (marks.size === 0 && stamps.length === 0);
+      }
+      $("pattern-name").addEventListener("input", updateSaveButton);
+
+      function setSaveFeedback(text) {
+        var el = $("save-feedback");
+        if (text) {
+          el.textContent = text;
+          el.hidden = false;
+        } else {
+          el.hidden = true;
+        }
+      }
+
+      $("save-pattern-btn").addEventListener("click", function () {
+        var name = $("pattern-name").value.trim();
+        if (!name) return;
+        var sp = splitMarks();
+        patterns = [{
+          id: "p" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6).toString(36),
+          name: name,
+          marks: sp.red,
+          greenMarks: sp.green,
+          stamps: stamps.map(function (s) {
+            return { id: s.id, cx: s.cx, cy: s.cy, radius: s.radius, count: s.count, seed: s.seed };
+          }),
+          updatedAt: Date.now(),
+        }].concat(patterns);
+        savePatternsNow();
+        $("pattern-name").value = "";
+        updateSaveButton();
+        setSaveFeedback("パターンを保存しました");
+        renderPatterns();
+      });
+
+      function loadPattern(p) {
+        pushHistory();
+        var keptRed = p.marks.filter(function (id) { return VALID_IDS.has(id); });
+        var keptGreen = p.greenMarks.filter(function (id) { return VALID_IDS.has(id); });
+        marks = new Map();
+        keptRed.forEach(function (id) { marks.set(id, 1); });
+        keptGreen.forEach(function (id) { marks.set(id, 2); });
+        stamps = p.stamps.filter(isValidStamp).map(function (s) {
+          return { id: s.id, cx: s.cx, cy: s.cy, radius: s.radius, count: s.count, seed: s.seed };
+        });
+        var dropped = p.marks.length - keptRed.length + (p.greenMarks.length - keptGreen.length);
+        setNotice(dropped > 0
+          ? "「" + p.name + "」を呼び出しました（前の盤面の印 " + dropped + " 個は今の盤面に無いため外しました）"
+          : "「" + p.name + "」を呼び出しました");
+        render();
+        scheduleSave();
+      }
+
+      function renderPatterns() {
+        var list = $("pattern-list");
+        list.innerHTML = "";
+        $("patterns-empty").hidden = patterns.length > 0;
+        patterns.forEach(function (p) {
+          var li = document.createElement("li");
+          li.className = "pattern-item";
+          if (editingId === p.id) {
+            var row = document.createElement("div");
+            row.className = "edit-row";
+            var input = document.createElement("input");
+            input.type = "text";
+            input.value = p.name;
+            input.maxLength = 60;
+            input.setAttribute("aria-label", "新しいパターン名");
+            var ok = document.createElement("button");
+            ok.type = "button";
+            ok.className = "btn-accent";
+            ok.textContent = "決定";
+            ok.addEventListener("click", function () {
+              var v = input.value.trim();
+              if (!v) return;
+              p.name = v;
+              p.updatedAt = Date.now();
+              editingId = null;
+              savePatternsNow();
+              renderPatterns();
+            });
+            var cancel = document.createElement("button");
+            cancel.type = "button";
+            cancel.textContent = "やめる";
+            cancel.addEventListener("click", function () {
+              editingId = null;
+              renderPatterns();
+            });
+            row.appendChild(input);
+            row.appendChild(ok);
+            row.appendChild(cancel);
+            li.appendChild(row);
+          } else {
+            var liveRed = p.marks.filter(function (id) { return VALID_IDS.has(id); }).length;
+            var liveGreen = p.greenMarks.filter(function (id) { return VALID_IDS.has(id); }).length;
+            var liveBlue = p.stamps.reduce(function (sum, s) { return sum + s.count; }, 0);
+            var nameEl = document.createElement("p");
+            nameEl.className = "pname";
+            nameEl.textContent = p.name;
+            var meta = document.createElement("p");
+            meta.className = "pmeta";
+            meta.textContent =
+              "大穴 " + liveRed + " 本 · 小穴 " + liveGreen + " 本" +
+              (liveBlue > 0 ? " · まち針 約" + liveBlue + "個" : "") +
+              " · " + new Date(p.updatedAt).toLocaleDateString("ja-JP");
+            var actions = document.createElement("div");
+            actions.className = "pattern-actions";
+            var loadBtn = document.createElement("button");
+            loadBtn.type = "button";
+            loadBtn.className = "load";
+            loadBtn.textContent = "呼び出す";
+            loadBtn.addEventListener("click", function () { loadPattern(p); });
+            var renameBtn = document.createElement("button");
+            renameBtn.type = "button";
+            renameBtn.textContent = "名前変更";
+            renameBtn.addEventListener("click", function () {
+              editingId = p.id;
+              renderPatterns();
+            });
+            var delBtn = document.createElement("button");
+            delBtn.type = "button";
+            if (confirmDeleteId === p.id) {
+              delBtn.className = "danger";
+              delBtn.textContent = "本当に削除";
+            } else {
+              delBtn.textContent = "削除";
+            }
+            delBtn.addEventListener("click", function () {
+              if (confirmDeleteId === p.id) {
+                patterns = patterns.filter(function (q) { return q.id !== p.id; });
+                confirmDeleteId = null;
+                if (confirmDeleteTimer) clearTimeout(confirmDeleteTimer);
+                savePatternsNow();
+                renderPatterns();
+              } else {
+                confirmDeleteId = p.id;
+                if (confirmDeleteTimer) clearTimeout(confirmDeleteTimer);
+                confirmDeleteTimer = setTimeout(function () {
+                  confirmDeleteId = null;
+                  renderPatterns();
+                }, 3000);
+                renderPatterns();
+              }
+            });
+            actions.appendChild(loadBtn);
+            actions.appendChild(renameBtn);
+            actions.appendChild(delBtn);
+            li.appendChild(nameEl);
+            li.appendChild(meta);
+            li.appendChild(actions);
+          }
+          list.appendChild(li);
+        });
+      }
+
+      $("undo-btn").addEventListener("click", undo);
+      $("clear-btn").addEventListener("click", clearAll);
+
+      // ---- init -----------------------------------------------------------
+      loadStored();
+      renderBg();
+      renderMode();
+      render();
+      renderPatterns();
+    </script>
+  </body>
+</html>
