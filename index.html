@@ -1066,7 +1066,7 @@
         });
       }
 
-      // ---- share links (#p=<base64url JSON>) ---------------------------
+      // ---- share links (#p= base64url; v2 binary, v1 JSON still readable) ----
       function cloneStampList(list) {
         return list.map(function (s) {
           return { id: s.id, cx: s.cx, cy: s.cy, radius: s.radius, count: s.count, seed: s.seed };
@@ -1094,11 +1094,162 @@
         };
       }
 
+      // v2 binary format (new links): 1 header byte (version/flags), then
+      // red + green mark sections (index list or 306-bit bitset, whichever
+      // is shorter), stamps packed at 10 bytes each, optional UTF-8 name.
+      // v1 links (base64url JSON) are still decoded below for compatibility.
+      var HOLE_INDEX = new Map(HOLES.map(function (h, i) { return [h.id, i]; }));
+      var BITSET_BYTES = Math.ceil(TOTAL_HOLES / 8); // 39 bytes for 306 holes
+      var BG_TO_CODE = { mono: 0, silver: 1, plain: 2 };
+      var CODE_TO_BG = ["mono", "silver", "plain", null];
+
+      function markIndices(ids, exclude) {
+        var seen = new Set();
+        var out = [];
+        (ids || []).forEach(function (id) {
+          var idx = HOLE_INDEX.get(id);
+          if (idx === undefined || seen.has(idx)) return;
+          if (exclude && exclude.has(idx)) return;
+          seen.add(idx);
+          out.push(idx);
+        });
+        out.sort(function (a, b) { return a - b; });
+        return out;
+      }
+
+      function encodeMarkSection(indices) {
+        // list: 1 + 2n bytes; bitset: 39 bytes. List wins below ~19 marks.
+        if (indices.length * 2 + 1 < BITSET_BYTES) {
+          var list = [indices.length];
+          indices.forEach(function (idx) {
+            list.push((idx >> 8) & 0xff, idx & 0xff);
+          });
+          return { bitset: false, bytes: list };
+        }
+        var bits = [];
+        for (var i = 0; i < BITSET_BYTES; i++) bits.push(0);
+        indices.forEach(function (idx) {
+          bits[idx >> 3] |= 1 << (idx & 7);
+        });
+        return { bitset: true, bytes: bits };
+      }
+
       function encodeSharePayload(payload) {
-        var bytes = new TextEncoder().encode(JSON.stringify(payload));
+        var redIdx = markIndices(payload.marks, null);
+        var redSet = new Set(redIdx);
+        var greenIdx = markIndices(payload.greenMarks, redSet);
+        var redSec = encodeMarkSection(redIdx);
+        var greenSec = encodeMarkSection(greenIdx);
+        var bgCode = Object.prototype.hasOwnProperty.call(BG_TO_CODE, payload.bg)
+          ? BG_TO_CODE[payload.bg]
+          : 3;
+        var nameBytes = null;
+        if (typeof payload.name === "string" && payload.name) {
+          nameBytes = new TextEncoder().encode(payload.name.slice(0, 60));
+          if (nameBytes.length > 255) nameBytes = nameBytes.slice(0, 255);
+        }
+        var header =
+          0x40 | // version 2 in bits 7-5
+          (nameBytes ? 0x10 : 0) |
+          (redSec.bitset ? 0x08 : 0) |
+          (greenSec.bitset ? 0x04 : 0) |
+          bgCode;
+        var bytes = [header]
+          .concat(redSec.bytes)
+          .concat(greenSec.bytes);
+        var stampList = (payload.stamps || []).filter(isValidStamp).slice(0, 255);
+        bytes.push(stampList.length);
+        stampList.forEach(function (s) {
+          var cx = Math.max(0, Math.min(65535, Math.round(s.cx * 100)));
+          var cy = Math.max(0, Math.min(65535, Math.round(s.cy * 100)));
+          var seed = s.seed >>> 0;
+          bytes.push(
+            (cx >> 8) & 0xff, cx & 0xff,
+            (cy >> 8) & 0xff, cy & 0xff,
+            Math.max(0, Math.min(255, Math.round(s.radius))),
+            Math.max(0, Math.min(255, Math.round(s.count))),
+            (seed >>> 24) & 0xff, (seed >>> 16) & 0xff,
+            (seed >>> 8) & 0xff, seed & 0xff
+          );
+        });
+        if (nameBytes) {
+          bytes.push(nameBytes.length);
+          for (var ni = 0; ni < nameBytes.length; ni++) bytes.push(nameBytes[ni]);
+        }
         var bin = "";
         for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
         return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      }
+
+      function decodeMarkSection(bytes, pos, bitset) {
+        var indices = [];
+        var i;
+        if (bitset) {
+          if (pos + BITSET_BYTES > bytes.length) return null;
+          for (i = 0; i < TOTAL_HOLES; i++) {
+            if (bytes[pos + (i >> 3)] & (1 << (i & 7))) indices.push(i);
+          }
+          return { indices: indices, next: pos + BITSET_BYTES };
+        }
+        if (pos >= bytes.length) return null;
+        var n = bytes[pos];
+        if (pos + 1 + n * 2 > bytes.length) return null;
+        for (i = 0; i < n; i++) {
+          var idx = (bytes[pos + 1 + i * 2] << 8) | bytes[pos + 2 + i * 2];
+          if (idx < TOTAL_HOLES) indices.push(idx);
+        }
+        return { indices: indices, next: pos + 1 + n * 2 };
+      }
+
+      function decodeShareV2(bytes) {
+        var header = bytes[0];
+        if ((header >> 5) !== 2) return null;
+        var hasName = (header & 0x10) !== 0;
+        var pos = 1;
+        var redSec = decodeMarkSection(bytes, pos, (header & 0x08) !== 0);
+        if (!redSec) return null;
+        pos = redSec.next;
+        var greenSec = decodeMarkSection(bytes, pos, (header & 0x04) !== 0);
+        if (!greenSec) return null;
+        pos = greenSec.next;
+        if (pos >= bytes.length) return null;
+        var stampCount = bytes[pos];
+        pos += 1;
+        if (pos + stampCount * 10 > bytes.length) return null;
+        var stamps = [];
+        for (var i = 0; i < stampCount; i++) {
+          var o = pos + i * 10;
+          var stamp = {
+            id: "s-share-" + i,
+            cx: ((bytes[o] << 8) | bytes[o + 1]) / 100,
+            cy: ((bytes[o + 2] << 8) | bytes[o + 3]) / 100,
+            radius: bytes[o + 4],
+            count: bytes[o + 5],
+            seed: ((bytes[o + 6] << 24) | (bytes[o + 7] << 16) |
+              (bytes[o + 8] << 8) | bytes[o + 9]) >>> 0,
+          };
+          if (isValidStamp(stamp)) stamps.push(stamp);
+        }
+        pos += stampCount * 10;
+        var name = null;
+        if (hasName) {
+          if (pos >= bytes.length) return null;
+          var nameLen = bytes[pos];
+          if (pos + 1 + nameLen > bytes.length) return null;
+          name = new TextDecoder("utf-8").decode(
+            bytes.slice(pos + 1, pos + 1 + nameLen)
+          ).slice(0, 60) || null;
+        }
+        var redIdSet = new Set(redSec.indices);
+        return {
+          marks: redSec.indices.map(function (idx) { return HOLES[idx].id; }),
+          greenMarks: greenSec.indices
+            .filter(function (idx) { return !redIdSet.has(idx); })
+            .map(function (idx) { return HOLES[idx].id; }),
+          stamps: stamps.slice(0, 200),
+          bg: CODE_TO_BG[header & 0x03],
+          name: name,
+        };
       }
 
       function decodeSharePayload(data) {
@@ -1109,6 +1260,12 @@
         var bin = atob(b64);
         var bytes = new Uint8Array(bin.length);
         for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        if (bytes.length === 0) return null;
+        if (bytes[0] !== 0x7b) {
+          // Not "{" — v2 binary payload.
+          return decodeShareV2(bytes);
+        }
+        // v1: base64url-encoded JSON (kept readable for old links).
         var obj = JSON.parse(new TextDecoder("utf-8").decode(bytes));
         if (!obj || typeof obj !== "object") return null;
         if (!Array.isArray(obj.marks) || !Array.isArray(obj.greenMarks) || !Array.isArray(obj.stamps)) return null;
