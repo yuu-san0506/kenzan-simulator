@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>剣山プランナー掲示板</title>
+<style>
+  :root {
+    --bg: #101014; --panel: #1a1a21; --panel2: #22222c; --line: #34343f;
+    --text: #e8e8ee; --sub: #a5a5b5; --accent: #e8b64c; --accent2: #7fb069;
+    --danger: #e05d5d; --star: #f5c542;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 16px 14px 60px; }
+  header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+  header h1 { font-size: 20px; margin: 0; }
+  header .nav { margin-left: auto; font-size: 13px; }
+  a { color: var(--accent); }
+  .notice { background: #3a2f14; border: 1px solid #6b5518; color: #f0d48a;
+    border-radius: 8px; padding: 10px 12px; font-size: 13px; margin: 14px 0; display: none; }
+  .card { background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px; margin: 14px 0; }
+  .card h2 { font-size: 15px; margin: 0 0 10px; }
+  label { display: block; font-size: 12px; color: var(--sub); margin: 10px 0 4px; }
+  input[type="text"], input[type="url"], input[type="email"], input[type="password"],
+  select, textarea {
+    width: 100%; background: var(--panel2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px;
+    font-size: 14px; font-family: inherit; }
+  textarea { resize: vertical; min-height: 84px; }
+  .count { font-size: 11px; color: var(--sub); text-align: right; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row > * { flex: 0 0 auto; }
+  .grow { flex: 1 1 auto !important; }
+  button { background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 14px; font-size: 13px; cursor: pointer; }
+  button:hover { border-color: var(--sub); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #1a1405; font-weight: 700; }
+  button:disabled { opacity: .45; cursor: default; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { border-radius: 999px; padding: 5px 12px; font-size: 12px; }
+  .chip[aria-pressed="true"] { background: var(--accent); color: #1a1405; border-color: var(--accent); font-weight: 700; }
+  .post { background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px 14px; margin: 10px 0; }
+  .post.pinned { border-color: var(--accent); }
+  .post .meta { font-size: 11px; color: var(--sub); display: flex; gap: 8px; flex-wrap: wrap; }
+  .post .title { font-size: 15px; font-weight: 700; margin: 4px 0; }
+  .post .body { font-size: 14px; white-space: pre-wrap; word-break: break-word; margin: 4px 0 8px; }
+  .tag { background: var(--panel2); border: 1px solid var(--line); border-radius: 999px;
+    padding: 1px 8px; font-size: 11px; color: var(--sub); }
+  .pin-badge { color: var(--accent); font-size: 11px; font-weight: 700; }
+  .star-btn { color: var(--sub); }
+  .star-btn.on { color: var(--star); border-color: var(--star); }
+  .open-btn { display: inline-block; background: var(--accent2); color: #0d1a0a;
+    border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 700;
+    text-decoration: none; }
+  .admin-zone { display: none; gap: 6px; margin-top: 8px; }
+  .admin-zone button { font-size: 11px; padding: 4px 10px; }
+  .admin-zone .del { color: var(--danger); }
+  .msg { font-size: 13px; min-height: 18px; margin-top: 8px; }
+  .msg.err { color: var(--danger); }
+  .msg.ok { color: var(--accent2); }
+  .small { font-size: 12px; color: var(--sub); }
+  #admin-bar { display: none; margin: 10px 0; }
+  .linked-note { background: #17301a; border: 1px solid #2c5b31; color: #a9d6a4;
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; margin: 10px 0; display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🗨️ 剣山プランナー掲示板</h1>
+    <div class="nav">
+      <a href="index.html">← プランナーに戻る</a>
+      &nbsp;·&nbsp;
+      <a href="#" id="admin-login-link">管理者ログイン</a>
+    </div>
+  </header>
+
+  <div class="notice" id="setup-notice">
+    掲示板は準備中です（データベース未接続）。管理者のセットアップが終わると投稿できるようになります。
+  </div>
+
+  <div id="admin-bar" class="card">
+    <div class="row">
+      <span class="small grow" id="admin-state">管理者としてログイン中</span>
+      <button id="admin-logout" type="button">ログアウト</button>
+    </div>
+  </div>
+
+  <div class="card" id="admin-login-card" style="display:none">
+    <h2>管理者ログイン</h2>
+    <label for="admin-email">メールアドレス</label>
+    <input type="email" id="admin-email" autocomplete="username">
+    <label for="admin-password">パスワード</label>
+    <input type="password" id="admin-password" autocomplete="current-password">
+    <div class="row" style="margin-top:12px">
+      <button class="primary" id="admin-login-btn" type="button">ログイン</button>
+      <button id="admin-login-cancel" type="button">閉じる</button>
+    </div>
+    <div class="msg" id="admin-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>投稿する</h2>
+    <div class="linked-note" id="linked-note">✅ プランナーからパターンリンクを受け取りました（下のリンク欄に自動入力済み）</div>
+    <form id="post-form">
+      <label for="f-name">名前（任意）</label>
+      <input type="text" id="f-name" maxlength="30" placeholder="名無し">
+      <label for="f-title">タイトル</label>
+      <input type="text" id="f-title" maxlength="60" required placeholder="例：DarksideとDozajのミックス">
+      <label for="f-tag">分類</label>
+      <select id="f-tag">
+        <option value="recipe">レシピ</option>
+        <option value="pattern">パターン紹介</option>
+        <option value="question">質問</option>
+      </select>
+      <label for="f-body">本文（400字まで）</label>
+      <textarea id="f-body" maxlength="400" required placeholder="葉の配合、グラム数、炭の置き方、吸った感想など"></textarea>
+      <div class="count"><span id="body-count">0</span> / 400</div>
+      <label for="f-link">パターンリンク（任意・プランナーの共有リンク）</label>
+      <input type="url" id="f-link" maxlength="600" placeholder="https://…#p=…">
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="post-submit" type="submit">投稿する</button>
+        <span class="small">連投は60秒に1回まで</span>
+      </div>
+      <div class="msg" id="post-msg"></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="chips" id="tag-filter">
+        <button type="button" class="chip" data-tag="" aria-pressed="true">全部</button>
+        <button type="button" class="chip" data-tag="recipe" aria-pressed="false">レシピ</button>
+        <button type="button" class="chip" data-tag="pattern" aria-pressed="false">パターン紹介</button>
+        <button type="button" class="chip" data-tag="question" aria-pressed="false">質問</button>
+      </div>
+      <select id="sort-mode" class="grow" aria-label="並び替え">
+        <option value="popular">人気順（星の数）</option>
+        <option value="new">新着順</option>
+      </select>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input type="text" id="search" class="grow" placeholder="キーワード検索（タイトル・本文・名前）">
+    </div>
+  </div>
+
+  <div id="posts"></div>
+  <div class="row" style="justify-content:center; margin-top:14px">
+    <button id="more-btn" type="button" style="display:none">もっと見る</button>
+  </div>
+  <div class="msg" id="list-msg"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  // ==== 設定（Supabaseプロジェクト作成後に差し替え） ====
+  var SUPABASE_URL = "https://accdspaxpclwgyknuoux.supabase.co";
+  var SUPABASE_ANON_KEY = "sb_publishable_0BitE6lfeWqN6pW8Omm5XQ_mDqkbCbY";
+  // ====================================================
+
+  var PAGE = 20;
+  var TAG_LABEL = { recipe: "レシピ", pattern: "パターン紹介", question: "質問" };
+  var VOTER_KEY = "kenzanBoard.voter";
+  var STARRED_KEY = "kenzanBoard.starred";
+  var LASTPOST_KEY = "kenzanBoard.lastPostAt";
+  var NAME_KEY = "kenzanBoard.name";
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? "" : s); }
+
+  var configured = SUPABASE_URL.indexOf("http") === 0 && SUPABASE_ANON_KEY.length > 20;
+  var sb = null;
+  if (configured && window.supabase) {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    $("setup-notice").style.display = "block";
+  }
+
+  // ---- voter / starred (local) ----
+  function voter() {
+    var v = localStorage.getItem(VOTER_KEY);
+    if (!v) {
+      v = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+        : "v" + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+      localStorage.setItem(VOTER_KEY, v);
+    }
+    return v;
+  }
+  function starredSet() {
+    try { return new Set(JSON.parse(localStorage.getItem(STARRED_KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function saveStarred(set) {
+    localStorage.setItem(STARRED_KEY, JSON.stringify(Array.from(set)));
+  }
+
+  // ---- planner link handoff (?p=<payload>) ----
+  (function acceptLinkedPattern() {
+    var params = new URLSearchParams(location.search);
+    var p = params.get("p");
+    if (p) {
+      var plannerUrl = new URL("index.html", location.href);
+      plannerUrl.hash = "p=" + p;
+      $("f-link").value = plannerUrl.href;
+      $("linked-note").style.display = "block";
+    }
+  })();
+
+  // ---- state ----
+  var allPosts = [];       // fetched posts (max 300, newest first from server)
+  var shownCount = PAGE;
+  var filterTag = "";
+  var sortMode = "popular";
+  var keyword = "";
+  var isAdmin = false;
+
+  function starCount(post) {
+    if (post.stars && post.stars.length && typeof post.stars[0].count === "number") {
+      return post.stars[0].count;
+    }
+    return 0;
+  }
+
+  function visiblePosts() {
+    var list = allPosts.filter(function (post) {
+      if (filterTag && post.tag !== filterTag) return false;
+      if (keyword) {
+        var hay = (esc(post.title) + "\n" + esc(post.body) + "\n" + esc(post.name)).toLowerCase();
+        if (hay.indexOf(keyword.toLowerCase()) < 0) return false;
+      }
+      return true;
+    });
+    list.sort(function (a, b) {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      if (sortMode === "popular") {
+        var d = starCount(b) - starCount(a);
+        if (d !== 0) return d;
+      }
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+    return list;
+  }
+
+  function render() {
+    var box = $("posts");
+    box.textContent = "";
+    var list = visiblePosts();
+    var starred = starredSet();
+    list.slice(0, shownCount).forEach(function (post) {
+      box.appendChild(renderPost(post, starred));
+    });
+    $("more-btn").style.display = list.length > shownCount ? "" : "none";
+    if (list.length === 0) {
+      var empty = document.createElement("div");
+      empty.className = "card small";
+      empty.textContent = "まだ投稿がありません。";
+      box.appendChild(empty);
+    }
+  }
+
+  function renderPost(post, starred) {
+    var el = document.createElement("article");
+    el.className = "post" + (post.pinned ? " pinned" : "");
+
+    var meta = document.createElement("div");
+    meta.className = "meta";
+    var tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = TAG_LABEL[post.tag] || post.tag;
+    meta.appendChild(tag);
+    if (post.pinned) {
+      var pin = document.createElement("span");
+      pin.className = "pin-badge";
+      pin.textContent = "📌 トップ固定";
+      meta.appendChild(pin);
+    }
+    var who = document.createElement("span");
+    who.textContent = (post.name ? post.name : "名無し") + " · " +
+      new Date(post.created_at).toLocaleString("ja-JP");
+    meta.appendChild(who);
+    el.appendChild(meta);
+
+    var title = document.createElement("div");
+    title.className = "title";
+    title.textContent = esc(post.title);
+    el.appendChild(title);
+
+    var body = document.createElement("div");
+    body.className = "body";
+    body.textContent = esc(post.body);
+    el.appendChild(body);
+
+    var row = document.createElement("div");
+    row.className = "row";
+    var starBtn = document.createElement("button");
+    starBtn.type = "button";
+    var on = starred.has(post.id);
+    starBtn.className = "star-btn" + (on ? " on" : "");
+    starBtn.textContent = (on ? "★ " : "☆ ") + starCount(post);
+    starBtn.addEventListener("click", function () { toggleStar(post, starBtn); });
+    row.appendChild(starBtn);
+    if (post.pattern_url) {
+      var open = document.createElement("a");
+      open.className = "open-btn";
+      open.href = post.pattern_url;
+      open.target = "_blank";
+      open.rel = "noopener";
+      open.textContent = "このパターンを開く";
+      row.appendChild(open);
+    }
+    el.appendChild(row);
+
+    if (isAdmin) {
+      var zone = document.createElement("div");
+      zone.className = "admin-zone";
+      zone.style.display = "flex";
+      var pinBtn = document.createElement("button");
+      pinBtn.type = "button";
+      pinBtn.textContent = post.pinned ? "ピン解除" : "トップに固定";
+      pinBtn.addEventListener("click", function () { adminPin(post); });
+      var delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "del";
+      delBtn.textContent = "削除";
+      delBtn.addEventListener("click", function () { adminDelete(post); });
+      zone.appendChild(pinBtn);
+      zone.appendChild(delBtn);
+      el.appendChild(zone);
+    }
+    return el;
+  }
+
+  // ---- data ----
+  function loadPosts() {
+    if (!sb) { render(); return; }
+    sb.from("posts").select("*, stars(count)")
+      .order("created_at", { ascending: false }).limit(300)
+      .then(function (res) {
+        if (res.error) {
+          $("list-msg").className = "msg err";
+          $("list-msg").textContent = "読み込みに失敗しました。";
+          return;
+        }
+        allPosts = res.data || [];
+        render();
+      });
+  }
+
+  function toggleStar(post, btn) {
+    if (!sb) return;
+    var starred = starredSet();
+    var v = voter();
+    btn.disabled = true;
+    if (starred.has(post.id)) {
+      sb.from("stars").delete().eq("post_id", post.id).eq("voter", v)
+        .then(function (res) {
+          btn.disabled = false;
+          if (!res.error) {
+            starred.delete(post.id); saveStarred(starred);
+            if (post.stars && post.stars[0]) post.stars[0].count = Math.max(0, starCount(post) - 1);
+            render();
+          }
+        });
+    } else {
+      sb.from("stars").insert({ post_id: post.id, voter: v })
+        .then(function (res) {
+          btn.disabled = false;
+          if (!res.error) {
+            starred.add(post.id); saveStarred(starred);
+            if (post.stars && post.stars[0]) post.stars[0].count = starCount(post) + 1;
+            render();
+          }
+        });
+    }
+  }
+
+  // ---- posting ----
+  function validPatternUrl(u) {
+    if (!u) return true;
+    return u.indexOf("#p=") >= 0 && u.length <= 600;
+  }
+
+  $("f-body").addEventListener("input", function () {
+    $("body-count").textContent = String($("f-body").value.length);
+  });
+  var savedName = localStorage.getItem(NAME_KEY);
+  if (savedName) $("f-name").value = savedName;
+
+  $("post-form").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var msg = $("post-msg");
+    msg.className = "msg"; msg.textContent = "";
+    if (!sb) {
+      msg.className = "msg err";
+      msg.textContent = "掲示板はまだ準備中です。";
+      return;
+    }
+    var last = Number(localStorage.getItem(LASTPOST_KEY) || 0);
+    if (Date.now() - last < 60 * 1000) {
+      msg.className = "msg err";
+      msg.textContent = "連投制限中です。少し待ってから投稿してください。";
+      return;
+    }
+    var name = $("f-name").value.trim();
+    var title = $("f-title").value.trim();
+    var body = $("f-body").value.trim();
+    var link = $("f-link").value.trim();
+    if (!title || !body) {
+      msg.className = "msg err";
+      msg.textContent = "タイトルと本文を入力してください。";
+      return;
+    }
+    if (body.length > 400) {
+      msg.className = "msg err";
+      msg.textContent = "本文は400字までです。";
+      return;
+    }
+    if (!validPatternUrl(link)) {
+      msg.className = "msg err";
+      msg.textContent = "リンクはプランナーの共有リンク（#p= を含むもの）を貼ってください。";
+      return;
+    }
+    $("post-submit").disabled = true;
+    sb.from("posts").insert({
+      name: name || null,
+      title: title,
+      tag: $("f-tag").value,
+      body: body,
+      pattern_url: link || null
+    }).then(function (res) {
+      $("post-submit").disabled = false;
+      if (res.error) {
+        msg.className = "msg err";
+        msg.textContent = "投稿に失敗しました。";
+        return;
+      }
+      localStorage.setItem(LASTPOST_KEY, String(Date.now()));
+      if (name) localStorage.setItem(NAME_KEY, name);
+      $("f-title").value = "";
+      $("f-body").value = "";
+      $("f-link").value = "";
+      $("body-count").textContent = "0";
+      $("linked-note").style.display = "none";
+      msg.className = "msg ok";
+      msg.textContent = "投稿しました。";
+      shownCount = PAGE;
+      loadPosts();
+    });
+  });
+
+  // ---- filters ----
+  $("tag-filter").addEventListener("click", function (ev) {
+    var btn = ev.target.closest(".chip");
+    if (!btn) return;
+    filterTag = btn.getAttribute("data-tag") || "";
+    Array.prototype.forEach.call($("tag-filter").children, function (c) {
+      c.setAttribute("aria-pressed", String(c === btn));
+    });
+    shownCount = PAGE;
+    render();
+  });
+  $("sort-mode").addEventListener("change", function () {
+    sortMode = $("sort-mode").value;
+    shownCount = PAGE;
+    render();
+  });
+  $("search").addEventListener("input", function () {
+    keyword = $("search").value.trim();
+    shownCount = PAGE;
+    render();
+  });
+  $("more-btn").addEventListener("click", function () {
+    shownCount += PAGE;
+    render();
+  });
+
+  // ---- admin ----
+  function setAdmin(on) {
+    isAdmin = on;
+    $("admin-bar").style.display = on ? "block" : "none";
+    $("admin-login-link").textContent = on ? "管理者ログイン中" : "管理者ログイン";
+    render();
+  }
+  $("admin-login-link").addEventListener("click", function (ev) {
+    ev.preventDefault();
+    if (isAdmin) return;
+    var card = $("admin-login-card");
+    card.style.display = card.style.display === "none" ? "block" : "none";
+  });
+  $("admin-login-cancel").addEventListener("click", function () {
+    $("admin-login-card").style.display = "none";
+  });
+  $("admin-login-btn").addEventListener("click", function () {
+    var msg = $("admin-msg");
+    msg.className = "msg"; msg.textContent = "";
+    if (!sb) { msg.className = "msg err"; msg.textContent = "未接続です。"; return; }
+    sb.auth.signInWithPassword({
+      email: $("admin-email").value.trim(),
+      password: $("admin-password").value
+    }).then(function (res) {
+      if (res.error) {
+        msg.className = "msg err";
+        msg.textContent = "ログインできませんでした。";
+        return;
+      }
+      $("admin-login-card").style.display = "none";
+      setAdmin(true);
+    });
+  });
+  $("admin-logout").addEventListener("click", function () {
+    if (sb) sb.auth.signOut();
+    setAdmin(false);
+  });
+  function adminPin(post) {
+    sb.from("posts").update({ pinned: !post.pinned }).eq("id", post.id)
+      .then(function (res) { if (!res.error) { post.pinned = !post.pinned; render(); } });
+  }
+  function adminDelete(post) {
+    if (!window.confirm("この投稿を削除しますか？")) return;
+    sb.from("posts").delete().eq("id", post.id)
+      .then(function (res) {
+        if (!res.error) {
+          allPosts = allPosts.filter(function (p) { return p.id !== post.id; });
+          render();
+        }
+      });
+  }
+  if (sb) {
+    sb.auth.getSession().then(function (res) {
+      setAdmin(!!(res.data && res.data.session));
+    });
+    sb.auth.onAuthStateChange(function (_ev, session) { setAdmin(!!session); });
+  }
+
+  loadPosts();
+})();
+</script>
+</body>
+</html>
