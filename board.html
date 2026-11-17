@@ -60,6 +60,13 @@
   .admin-zone { display: none; gap: 6px; margin-top: 8px; }
   .admin-zone button { font-size: 11px; padding: 4px 10px; }
   .admin-zone .del { color: var(--danger); }
+  .comments { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+  .comment { padding: 6px 0; border-bottom: 1px dashed var(--line); }
+  .comment .c-meta { font-size: 11px; color: var(--sub); }
+  .comment .c-body { font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+  .comment .c-del { font-size: 11px; padding: 2px 8px; color: var(--danger); margin-left: 8px; }
+  .c-form { margin-top: 8px; }
+  .c-form textarea { min-height: 52px; margin-top: 6px; }
   .msg { font-size: 13px; min-height: 18px; margin-top: 8px; }
   .msg.err { color: var(--danger); }
   .msg.ok { color: var(--accent2); }
@@ -79,10 +86,6 @@
       <a href="#" id="admin-login-link">管理者ログイン</a>
     </div>
   </header>
-
-  <div class="notice" id="setup-notice">
-    掲示板は準備中です（データベース未接続）。管理者のセットアップが終わると投稿できるようになります。
-  </div>
 
   <div id="admin-bar" class="card">
     <div class="row">
@@ -170,6 +173,7 @@
   var VOTER_KEY = "kenzanBoard.voter";
   var STARRED_KEY = "kenzanBoard.starred";
   var LASTPOST_KEY = "kenzanBoard.lastPostAt";
+  var LASTCOMMENT_KEY = "kenzanBoard.lastCommentAt";
   var NAME_KEY = "kenzanBoard.name";
 
   function $(id) { return document.getElementById(id); }
@@ -179,8 +183,6 @@
   var sb = null;
   if (configured && window.supabase) {
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  } else {
-    $("setup-notice").style.display = "block";
   }
 
   // ---- voter / starred (local) ----
@@ -220,6 +222,9 @@
   var sortMode = "popular";
   var keyword = "";
   var isAdmin = false;
+  var expanded = new Set();
+  var commentsCache = new Map();
+  var commentCounts = new Map();
 
   function starCount(post) {
     if (post.stars && post.stars.length && typeof post.stars[0].count === "number") {
@@ -315,7 +320,17 @@
       open.textContent = "このパターンを開く";
       row.appendChild(open);
     }
+    var cBtn = document.createElement("button");
+    cBtn.type = "button";
+    var cNum = commentCounts.get(post.id);
+    cBtn.textContent = "💬 コメント" + (typeof cNum === "number" ? " (" + cNum + ")" : "");
+    cBtn.addEventListener("click", function () { toggleComments(post); });
+    row.appendChild(cBtn);
     el.appendChild(row);
+
+    if (expanded.has(post.id)) {
+      el.appendChild(buildCommentsSection(post));
+    }
 
     if (isAdmin) {
       var zone = document.createElement("div");
@@ -337,6 +352,162 @@
     return el;
   }
 
+  // ---- comments ----
+  function toggleComments(post) {
+    if (expanded.has(post.id)) expanded.delete(post.id);
+    else expanded.add(post.id);
+    render();
+  }
+
+  function loadComments(postId) {
+    if (!sb) return;
+    sb.from("comments").select("*").eq("post_id", postId)
+      .order("created_at", { ascending: true }).limit(500)
+      .then(function (res) {
+        if (res.error) { commentsCache.set(postId, []); render(); return; }
+        commentsCache.set(postId, res.data || []);
+        commentCounts.set(postId, (res.data || []).length);
+        render();
+      });
+  }
+
+  function loadCommentCounts() {
+    if (!sb) return;
+    sb.from("comments").select("post_id").limit(2000)
+      .then(function (res) {
+        if (res.error) return;
+        commentCounts = new Map();
+        (res.data || []).forEach(function (r) {
+          commentCounts.set(r.post_id, (commentCounts.get(r.post_id) || 0) + 1);
+        });
+        render();
+      });
+  }
+
+  function renderComment(post, c) {
+    var el = document.createElement("div");
+    el.className = "comment";
+    var meta = document.createElement("div");
+    meta.className = "c-meta";
+    meta.textContent = (c.name ? c.name : "名無し") + " · " +
+      new Date(c.created_at).toLocaleString("ja-JP");
+    if (isAdmin) {
+      var del = document.createElement("button");
+      del.type = "button";
+      del.className = "c-del";
+      del.textContent = "削除";
+      del.addEventListener("click", function () { adminDeleteComment(post, c); });
+      meta.appendChild(del);
+    }
+    var body = document.createElement("div");
+    body.className = "c-body";
+    body.textContent = esc(c.body);
+    el.appendChild(meta);
+    el.appendChild(body);
+    return el;
+  }
+
+  function buildCommentsSection(post) {
+    var sec = document.createElement("div");
+    sec.className = "comments";
+    var list = commentsCache.get(post.id);
+    if (!list) {
+      var loading = document.createElement("div");
+      loading.className = "small";
+      loading.textContent = "読み込み中…";
+      sec.appendChild(loading);
+      loadComments(post.id);
+      return sec;
+    }
+    list.forEach(function (c) { sec.appendChild(renderComment(post, c)); });
+    if (list.length === 0) {
+      var none = document.createElement("div");
+      none.className = "small";
+      none.textContent = "まだコメントはありません。";
+      sec.appendChild(none);
+    }
+    var form = document.createElement("div");
+    form.className = "c-form";
+    var nameIn = document.createElement("input");
+    nameIn.type = "text";
+    nameIn.maxLength = 30;
+    nameIn.placeholder = "名前（任意）";
+    var saved = localStorage.getItem(NAME_KEY);
+    if (saved) nameIn.value = saved;
+    var bodyIn = document.createElement("textarea");
+    bodyIn.maxLength = 400;
+    bodyIn.placeholder = "コメントを書く（400字まで）";
+    var row = document.createElement("div");
+    row.className = "row";
+    row.style.marginTop = "6px";
+    var send = document.createElement("button");
+    send.type = "button";
+    send.className = "primary";
+    send.textContent = "コメントする";
+    var msg = document.createElement("span");
+    msg.className = "msg";
+    send.addEventListener("click", function () {
+      submitComment(post, nameIn, bodyIn, msg, send);
+    });
+    row.appendChild(send);
+    row.appendChild(msg);
+    form.appendChild(nameIn);
+    form.appendChild(bodyIn);
+    form.appendChild(row);
+    sec.appendChild(form);
+    return sec;
+  }
+
+  function submitComment(post, nameIn, bodyIn, msg, sendBtn) {
+    msg.className = "msg"; msg.textContent = "";
+    if (!sb) {
+      msg.className = "msg err";
+      msg.textContent = "未接続です。";
+      return;
+    }
+    var last = Number(localStorage.getItem(LASTCOMMENT_KEY) || 0);
+    if (Date.now() - last < 60 * 1000) {
+      msg.className = "msg err";
+      msg.textContent = "連投制限中です。少し待ってください。";
+      return;
+    }
+    var body = bodyIn.value.trim();
+    if (!body) {
+      msg.className = "msg err";
+      msg.textContent = "本文を入力してください。";
+      return;
+    }
+    sendBtn.disabled = true;
+    sb.from("comments").insert({
+      post_id: post.id,
+      name: nameIn.value.trim() || null,
+      body: body
+    }).then(function (res) {
+      sendBtn.disabled = false;
+      if (res.error) {
+        msg.className = "msg err";
+        msg.textContent = "コメントに失敗しました。";
+        return;
+      }
+      localStorage.setItem(LASTCOMMENT_KEY, String(Date.now()));
+      var nm = nameIn.value.trim();
+      if (nm) localStorage.setItem(NAME_KEY, nm);
+      commentsCache.delete(post.id);
+      loadComments(post.id);
+    });
+  }
+
+  function adminDeleteComment(post, c) {
+    if (!window.confirm("このコメントを削除しますか？")) return;
+    sb.from("comments").delete().eq("id", c.id)
+      .then(function (res) {
+        if (!res.error) {
+          commentsCache.delete(post.id);
+          loadComments(post.id);
+        }
+      });
+  }
+
   // ---- data ----
   function loadPosts() {
     if (!sb) { render(); return; }
@@ -350,6 +521,7 @@
         }
         allPosts = res.data || [];
         render();
+        loadCommentCounts();
       });
   }
 
